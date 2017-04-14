@@ -131,9 +131,9 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 				const int fn = cvRound(d1);
 
 				// initialize minimum costs
-				minCostG = costsG(u, vT) + priorTerm.G0(vT);
-				minCostO = costsO(u, vT, fn) + priorTerm.O0(vT);
-				minCostS = costsS(u, vT) + priorTerm.S0(vT);
+				minCostG = costsG(u, vT) + priorTerm.getG0(vT);
+				minCostO = costsO(u, vT, fn) + priorTerm.getO0(vT);
+				minCostS = costsS(u, vT) + priorTerm.getS0(vT);
 				minDispG = minDispO = minDispS = d1;
 			}
 			
@@ -152,12 +152,12 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 				const float d2 = dispTable(u, vB - 1, 1);
 
 #define UPDATE_COST(C1, C2) \
-				const float cost##C1##C2 = dataCost##C1 + priorTerm.##C1##C2(vB, cvRound(d1), cvRound(d2)) + costTable(u, vB - 1, ##C2); \
+				const float cost##C1##C2 = dataCost##C1 + priorTerm.get##C1##C2(vB, cvRound(d1), cvRound(d2)) + costTable(u, vB - 1, C2); \
 				if (cost##C1##C2 < minCost##C1) \
 				{ \
 					minCost##C1 = cost##C1##C2; \
 					minDisp##C1 = d1; \
-					minPos##C1 = cv::Point(##C2, vB - 1); \
+					minPos##C1 = cv::Point(C2, vB - 1); \
 				} \
 
 				UPDATE_COST(G, G);

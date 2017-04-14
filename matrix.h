@@ -30,27 +30,27 @@ public:
 
 	inline T& operator()(int i)
 	{
-		return *((T*)data + i);
+		return *((T*)this->data + i);
 	}
 	inline const T& operator()(int i) const
 	{
-		return *((T*)data + i);
+		return *((T*)this->data + i);
 	}
 	inline T& operator()(int i, int j)
 	{
-		return *((T*)data + i * size2 + j);
+		return *((T*)this->data + i * size2 + j);
 	}
 	inline const T& operator()(int i, int j) const
 	{
-		return *((T*)data + i * size2 + j);
+		return *((T*)this->data + i * size2 + j);
 	}
 	inline T& operator()(int i, int j, int k)
 	{
-		return *((T*)data + size3 * (i * size2 + j) + k);
+		return *((T*)this->data + size3 * (i * size2 + j) + k);
 	}
 	inline const T& operator()(int i, int j, int k) const
 	{
-		return *((T*)data + size3 * (i * size2 + j) + k);
+		return *((T*)this->data + size3 * (i * size2 + j) + k);
 	}
 	int size1, size2, size3;
 };

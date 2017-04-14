@@ -149,54 +149,54 @@ struct NegativeLogPriorTerm
 		init(h, vhor, dmax, dmin, b, fu, deltaz, eps, pOrd, pGrav, pBlg, groundDisparity);
 	}
 
-	inline float O0(int vT) const
+	inline float getO0(int vT) const
 	{
 		return costs0_(vT, O);
 	}
-	inline float G0(int vT) const
+	inline float getG0(int vT) const
 	{
 		return costs0_(vT, G);
 	}
-	inline float S0(int vT) const
+	inline float getS0(int vT) const
 	{
 		return N_LOG_0_0;
 	}
 
-	inline float OO(int vB, int d1, int d2) const
+	inline float getOO(int vB, int d1, int d2) const
 	{
 		return costs1_(vB, O, O) + costs2_O_O_(d2, d1);
 	}
-	inline float OG(int vB, int d1, int d2) const
+	inline float getOG(int vB, int d1, int d2) const
 	{
 		return costs1_(vB, O, G) + costs2_O_G_(vB - 1, d1);
 	}
-	inline float OS(int vB, int d1, int d2) const
+	inline float getOS(int vB, int d1, int d2) const
 	{
 		return costs1_(vB, O, S) + costs2_O_S_(d1);
 	}
 
-	inline float GO(int vB, int d1, int d2) const
+	inline float getGO(int vB, int d1, int d2) const
 	{
 		return costs1_(vB, G, O);
 	}
-	inline float GG(int vB, int d1, int d2) const
+	inline float getGG(int vB, int d1, int d2) const
 	{
 		return costs1_(vB, G, G);
 	}
-	inline float GS(int vB, int d1, int d2) const
+	inline float getGS(int vB, int d1, int d2) const
 	{
 		return N_LOG_0_0;
 	}
 
-	inline float SO(int vB, int d1, int d2) const
+	inline float getSO(int vB, int d1, int d2) const
 	{
 		return costs1_(vB, S, O) + costs2_S_O_(d2, d1);
 	}
-	inline float SG(int vB, int d1, int d2) const
+	inline float getSG(int vB, int d1, int d2) const
 	{
 		return N_LOG_0_0;
 	}
-	inline float SS(int vB, int d1, int d2) const
+	inline float getSS(int vB, int d1, int d2) const
 	{
 		return N_LOG_0_0;
 	}
