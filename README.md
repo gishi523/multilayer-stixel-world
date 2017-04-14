@@ -25,7 +25,7 @@ $ cmake ../
 $ make
 ```
 
-## How to use
+## How to run
 ```
 ./stixelworld left-image-format right-image-format camera.xml
 ```
