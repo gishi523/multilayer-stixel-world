@@ -5,8 +5,8 @@ An implementation of multi-layered stixel computation
 
 ## Description
 - An implementation of the Multi-Layered Stixel computation based on [1].
-- Extracts the static Stixels from the input disparity map.
-- Not a dynamic Stixel. It means that tracking and estimating motion of each Stixel is not supported.
+- Extracts the Stixels from the input disparity map.
+- Allows for multiple Stixels along every column.
 
 ## References
 - [1] [The Stixel World - A Compact Medium-level Representation for Efficiently Modeling Three-dimensional Environments](https://www.mydlt.de/david/page/publications.html)
