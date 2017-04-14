@@ -45,5 +45,12 @@ $ make
 - I tested this work using the Daimler Ground Truth Stixel Dataset
 - http://www.6d-vision.com/ground-truth-stixel-dataset
 
+### Performance
+- The Stixel computation runs around 50 ms in following setup
+  - CPU          : Core-i7 6700K(4.00 GHz/4Core/8T)
+  - Image size   : 1024 x 333 pixel
+  - Stixel width : 7 pixel
+  - with OpenMP
+  
 ## Author
 gishi523
