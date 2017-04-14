@@ -1,7 +1,7 @@
 # multilayer-stixel-world
 An implementation of multi-layered stixel computation
 
-![stixel-world](![stixel-world](https://github.com/gishi523/multilayer-stixel-world/wiki/images/multilayer-stixel-world.png))
+![stixel-world](https://github.com/gishi523/multilayer-stixel-world/wiki/images/multilayer-stixel-world.png)
 
 ## Description
 - An implementation of the Multi-Layered Stixel computation based on [1].
