@@ -46,8 +46,7 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 	// compute expected ground disparity
 	std::vector<float> groundDisparity(h);
 	for (int v = 0; v < h; v++)
-		groundDisparity[v] = std::max((camera.baseline / camera.height) * (camera.fu * sinTilt + (v - camera.v0) * cosTilt), 1.f);
-	std::reverse(std::begin(groundDisparity), std::end(groundDisparity));
+		groundDisparity[h - 1 - v] = std::max((camera.baseline / camera.height) * (camera.fu * sinTilt + (v - camera.v0) * cosTilt), 0.f);
 	const float vhor = h - 1 - (camera.v0 * cosTilt - camera.fu * sinTilt) / cosTilt;
 				
 	// create data cost function of each segment
@@ -122,7 +121,7 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 		{
 			float minCostG, minCostO, minCostS;
 			float minDispG, minDispO, minDispS;
-			cv::Point minPosG(0, 0), minPosO(1, 0), minPosS(2, 0);
+			cv::Point minPosG(G, 0), minPosO(O, 0), minPosS(S, 0);
 
 			// process vB = 0
 			{
@@ -171,17 +170,17 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 				UPDATE_COST(S, S);
 			}
 
-			costTable(u, vT, 0) = minCostG;
-			costTable(u, vT, 1) = minCostO;
-			costTable(u, vT, 2) = minCostS;
+			costTable(u, vT, G) = minCostG;
+			costTable(u, vT, O) = minCostO;
+			costTable(u, vT, S) = minCostS;
 
-			dispTable(u, vT, 0) = minDispG;
-			dispTable(u, vT, 1) = minDispO;
-			dispTable(u, vT, 2) = minDispS;
+			dispTable(u, vT, G) = minDispG;
+			dispTable(u, vT, O) = minDispO;
+			dispTable(u, vT, S) = minDispS;
 
-			indexTable(u, vT, 0) = minPosG;
-			indexTable(u, vT, 1) = minPosO;
-			indexTable(u, vT, 2) = minPosS;
+			indexTable(u, vT, G) = minPosG;
+			indexTable(u, vT, O) = minPosO;
+			indexTable(u, vT, S) = minPosS;
 		}
 	}
 
@@ -207,7 +206,7 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 		{
 			const cv::Point p1 = minPos;
 			const cv::Point p2 = indexTable(u, p1.y, p1.x);
-			if (p1.x == 1) // object
+			if (p1.x == O) // object
 			{
 				Stixel stixel;
 				stixel.u = stixelWidth * u + stixelWidth / 2;
