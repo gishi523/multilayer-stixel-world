@@ -22,12 +22,12 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 
 	// compute horizontal median of each column
 	Matrixf columns(w, h);
+	std::vector<float> buf(stixelWidth);
 	for (int v = 0; v < h; v++)
 	{
 		for (int u = 0; u < w; u++)
 		{
 			// compute horizontal median
-			std::vector<float> buf(stixelWidth);
 			for (int du = 0; du < stixelWidth; du++)
 				buf[du] = disparity.at<float>(v, u * stixelWidth + du);
 			std::sort(std::begin(buf), std::end(buf));
@@ -50,8 +50,9 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 	const float vhor = h - 1 - (camera.v0 * cosTilt - camera.fu * sinTilt) / cosTilt;
 				
 	// create data cost function of each segment
-	NegativeLogDataTermGrd dataTermG(param_.dmax, param_.dmin, param_.sigmaG, param_.pOutG, param_.pInvG, groundDisparity);
-	NegativeLogDataTermObj dataTermO(param_.dmax, param_.dmin, param_.sigmaO, param_.pOutO, param_.pInvO);
+	NegativeLogDataTermGrd dataTermG(param_.dmax, param_.dmin, param_.sigmaG, param_.pOutG, param_.pInvG, camera,
+		groundDisparity, vhor, param_.sigmaH, param_.sigmaA);
+	NegativeLogDataTermObj dataTermO(param_.dmax, param_.dmin, param_.sigmaO, param_.pOutO, param_.pInvO, camera, param_.deltaz);
 	NegativeLogDataTermSky dataTermS(param_.dmax, param_.dmin, param_.sigmaS, param_.pOutS, param_.pInvS);
 
 	// create prior cost function of each segment

@@ -53,6 +53,10 @@ public:
 		float sigmaO;
 		float sigmaS;
 
+		// camera height and tilt uncertainty
+		float sigmaH;
+		float sigmaA;
+
 		// outlier rate
 		float pOutG;
 		float pOutO;
@@ -88,6 +92,10 @@ public:
 			sigmaG = 1.5f;
 			sigmaO = 1.5f;
 			sigmaS = 1.2f;
+
+			// camera height and tilt uncertainty
+			sigmaH = 0.05f;
+			sigmaA = 0.05f * static_cast<float>(CV_PI) / 180.f;
 
 			// outlier rate
 			pOutG = 0.15f;

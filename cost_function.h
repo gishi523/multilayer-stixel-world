@@ -2,6 +2,7 @@
 #define __COST_FUNCTION_H__
 
 #include "matrix.h"
+#include "multilayer_stixel_world.h"
 
 #include <algorithm>
 #include <numeric>
@@ -18,9 +19,12 @@ static const float SQRT2 = static_cast<float>(M_SQRT2);
 
 struct NegativeLogDataTermGrd
 {
-	NegativeLogDataTermGrd(float dmax, float dmin, float sigma, float pOut, float pInv, const std::vector<float>& groundDisparity)
+	using CameraParameters = MultiLayerStixelWrold::CameraParameters;
+
+	NegativeLogDataTermGrd(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera,
+		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
 	{
-		init(dmax, dmin, sigma, pOut, pInv, groundDisparity);
+		init(dmax, dmin, sigmaD, pOut, pInv, camera, groundDisparity, vhor, sigmaH, sigmaA);
 	}
 
 	inline float operator()(float d, int v) const
@@ -28,40 +32,50 @@ struct NegativeLogDataTermGrd
 		if (d < 0.f)
 			return 0.f;
 
-		return std::min(nLogPUniform_, nLogPGaussian_[v] + cquad_ * (d - fn_[v]) * (d - fn_[v]));
+		return std::min(nLogPUniform_, nLogPGaussian_[v] + cquad_[v] * (d - fn_[v]) * (d - fn_[v]));
 	}
 
 	// pre-compute constant terms
-	void init(float dmax, float dmin, float sigma, float pOut, float pInv, const std::vector<float>& groundDisparity)
+	void init(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera,
+		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
 	{
 		// uniform distribution term
 		nLogPUniform_ = logf(dmax - dmin) - logf(pOut);
 
+		const float cf = camera.fu * camera.baseline / camera.height;
+
 		// Gaussian distribution term
 		const int h = static_cast<int>(groundDisparity.size());
 		nLogPGaussian_.resize(h);
+		cquad_.resize(h);
 		fn_.resize(h);
 		for (int v = 0; v < h; v++)
 		{
+			const float tmp = ((vhor - v) / camera.fv + camera.tilt) / camera.height;
+			const float sigmaR2 = cf * cf * (tmp * tmp * sigmaH * sigmaH + sigmaA * sigmaA);
+			const float sigma = sqrtf(sigmaD * sigmaD + sigmaR2);
+
 			const float fn = groundDisparity[v];
 			const float ANorm = 0.5f * (erff((dmax - fn) / (SQRT2 * sigma)) - erff((dmin - fn) / (SQRT2 * sigma)));
 			nLogPGaussian_[v] = logf(ANorm) + logf(sigma * sqrtf(2.f * PI)) - logf(1.f - pOut);
 			fn_[v] = fn;
-		}
 
-		// coefficient of quadratic part
-		cquad_ = 1.f / (2.f * sigma * sigma);
+			// coefficient of quadratic part
+			cquad_[v] = 1.f / (2.f * sigma * sigma);
+		}
 	}
 
-	float nLogPUniform_, cquad_;
-	std::vector<float> nLogPGaussian_, fn_;
+	float nLogPUniform_;
+	std::vector<float> nLogPGaussian_, cquad_, fn_;
 };
 
 struct NegativeLogDataTermObj
 {
-	NegativeLogDataTermObj(float dmax, float dmin, float sigma, float pOut, float pInv)
+	using CameraParameters = MultiLayerStixelWrold::CameraParameters;
+
+	NegativeLogDataTermObj(float dmax, float dmin, float sigma, float pOut, float pInv, const CameraParameters& camera, float deltaz)
 	{
-		init(dmax, dmin, sigma, pOut, pInv);
+		init(dmax, dmin, sigma, pOut, pInv, camera, deltaz);
 	}
 
 	inline float operator()(float d, int fn) const
@@ -69,11 +83,11 @@ struct NegativeLogDataTermObj
 		if (d < 0.f)
 			return 0.f;
 
-		return std::min(nLogPUniform_, nLogPGaussian_[fn] + cquad_ * (d - fn) * (d - fn));
+		return std::min(nLogPUniform_, nLogPGaussian_[fn] + cquad_[fn] * (d - fn) * (d - fn));
 	}
 
 	// pre-compute constant terms
-	void init(float dmax, float dmin, float sigma, float pOut, float pInv)
+	void init(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera, float deltaz)
 	{
 		// uniform distribution term
 		nLogPUniform_ = logf(dmax - dmin) - logf(pOut);
@@ -81,25 +95,29 @@ struct NegativeLogDataTermObj
 		// Gaussian distribution term
 		const int fnmax = static_cast<int>(dmax);
 		nLogPGaussian_.resize(fnmax);
+		cquad_.resize(fnmax);
 		for (int fn = 0; fn < fnmax; fn++)
 		{
+			const float sigmaZ = fn * fn * deltaz / (camera.fu * camera.baseline);
+			const float sigma = sqrtf(sigmaD * sigmaD + sigmaZ * sigmaZ);
+
 			const float ANorm = 0.5f * (erff((dmax - fn) / (SQRT2 * sigma)) - erff((dmin - fn) / (SQRT2 * sigma)));
 			nLogPGaussian_[fn] = logf(ANorm) + logf(sigma * sqrtf(2.f * PI)) - logf(1.f - pOut);
-		}
 
-		// coefficient of quadratic part
-		cquad_ = 1.f / (2.f * sigma * sigma);
+			// coefficient of quadratic part
+			cquad_[fn] = 1.f / (2.f * sigma * sigma);
+		}
 	}
 
-	float nLogPUniform_, cquad_;
-	std::vector<float> nLogPGaussian_;
+	float nLogPUniform_;
+	std::vector<float> nLogPGaussian_, cquad_;
 };
 
 struct NegativeLogDataTermSky
 {
-	NegativeLogDataTermSky(float dmax, float dmin, float sigma, float pOut, float pInv, float fn = 0.f) : fn_(fn)
+	NegativeLogDataTermSky(float dmax, float dmin, float sigmaD, float pOut, float pInv, float fn = 0.f) : fn_(fn)
 	{
-		init(dmax, dmin, sigma, pOut, pInv, fn);
+		init(dmax, dmin, sigmaD, pOut, pInv, fn);
 	}
 
 	inline float operator()(float d) const
@@ -111,17 +129,17 @@ struct NegativeLogDataTermSky
 	}
 
 	// pre-compute constant terms
-	void init(float dmax, float dmin, float sigma, float pOut, float pInv, float fn)
+	void init(float dmax, float dmin, float sigmaD, float pOut, float pInv, float fn)
 	{
 		// uniform distribution term
 		nLogPUniform_ = logf(dmax - dmin) - logf(pOut);
 
 		// Gaussian distribution term
-		const float ANorm = 0.5f * (erff((dmax - fn) / (SQRT2 * sigma)) - erff((dmin - fn) / (SQRT2 * sigma)));
-		nLogPGaussian_ = logf(ANorm) + logf(sigma * sqrtf(2.f * PI)) - logf(1.f - pOut);
+		const float ANorm = 0.5f * (erff((dmax - fn) / (SQRT2 * sigmaD)) - erff((dmin - fn) / (SQRT2 * sigmaD)));
+		nLogPGaussian_ = logf(ANorm) + logf(sigmaD * sqrtf(2.f * PI)) - logf(1.f - pOut);
 
 		// coefficient of quadratic part
-		cquad_ = 1.f / (2.f * sigma * sigma);
+		cquad_ = 1.f / (2.f * sigmaD * sigmaD);
 	}
 
 	float nLogPUniform_, cquad_, nLogPGaussian_, fn_;
@@ -267,7 +285,7 @@ struct NegativeLogPriorTerm
 			{
 				if (d1 > d2 + deltad)
 					costs2_O_O_(d2, d1) = -logf(pOrd / (d2 - deltad));
-				else if (d1 <= d2 + deltad)
+				else if (d1 <= d2 - deltad)
 					costs2_O_O_(d2, d1) = -logf((1.f - pOrd) / (dmax - d2 - deltad));
 				else
 					costs2_O_O_(d2, d1) = N_LOG_0_0;
@@ -281,7 +299,7 @@ struct NegativeLogPriorTerm
 			{
 				if (d1 > fn + eps)
 					costs2_O_G_(v, d1) = -logf(pGrav / (dmax - fn - eps));
-				else if (d1 > fn + eps)
+				else if (d1 < fn - eps)
 					costs2_O_G_(v, d1) = -logf(pBlg / (fn - eps - dmin));
 				else
 					costs2_O_G_(v, d1) = -logf((1.f - pGrav - pBlg) / (2.f * eps));
@@ -290,7 +308,7 @@ struct NegativeLogPriorTerm
 
 		for (int d1 = 0; d1 < fnmax; d1++)
 		{
-			costs2_O_S_(d1) = d1 > eps ? -logf((1.f / (dmax - dmin)) / (1.f - eps / (dmax - dmin))) : N_LOG_0_0;
+			costs2_O_S_(d1) = d1 > eps ? -logf(1.f / (dmax - dmin - eps)) : N_LOG_0_0;
 		}
 
 		for (int d2 = 0; d2 < fnmax; d2++)
