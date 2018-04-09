@@ -16,6 +16,12 @@ class MultiLayerStixelWrold
 {
 public:
 
+	enum
+	{
+		ROAD_ESTIMATION_AUTO = 0,
+		ROAD_ESTIMATION_CAMERA
+	};
+
 	struct CameraParameters
 	{
 		float fu;
@@ -75,6 +81,9 @@ public:
 		float deltaz;
 		float eps;
 
+		// road disparity estimation
+		int roadEstimation;
+
 		// camera parameters
 		CameraParameters camera;
 
@@ -114,6 +123,9 @@ public:
 
 			deltaz = 3.f;
 			eps = 1.f;
+
+			// road disparity estimation
+			roadEstimation = ROAD_ESTIMATION_AUTO;
 
 			// camera parameters
 			camera = CameraParameters();
