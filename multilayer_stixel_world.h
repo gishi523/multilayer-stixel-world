@@ -134,7 +134,7 @@ public:
 
 	MultiLayerStixelWrold(const Parameters& param);
 
-	std::vector<Stixel> compute(const cv::Mat& disparity);
+	void compute(const cv::Mat& disparity, std::vector<Stixel>& stixels);
 
 private:
 

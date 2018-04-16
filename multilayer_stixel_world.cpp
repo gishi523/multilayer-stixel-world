@@ -7,12 +7,12 @@
 #include <omp.h>
 #endif
 
+using CameraParameters = MultiLayerStixelWrold::CameraParameters;
+
 // Implementation of road disparity estimation by RANSAC
 class RoadEstimation
 {
 public:
-
-	using CameraParameters = MultiLayerStixelWrold::CameraParameters;
 
 	struct Parameters
 	{
@@ -129,11 +129,33 @@ private:
 	std::vector<cv::Point2f> points_;
 };
 
+static cv::Vec2f calcRoadDisparityParams(const cv::Mat1f& columns, const CameraParameters& camera, int mode)
+{
+	if (mode == MultiLayerStixelWrold::ROAD_ESTIMATION_AUTO)
+	{
+		// estimate from v-disparity
+		RoadEstimation roadEstimation;
+		return roadEstimation.compute(columns, camera);
+	}
+	else if (mode == MultiLayerStixelWrold::ROAD_ESTIMATION_CAMERA)
+	{
+		// estimate from camera tilt and height
+		const float sinTilt = sinf(camera.tilt);
+		const float cosTilt = cosf(camera.tilt);
+		const float a = (camera.baseline / camera.height) * cosTilt;
+		const float b = (camera.baseline / camera.height) * (camera.fu * sinTilt - camera.v0 * cosTilt);
+		return cv::Vec2f(a, b);
+	}
+
+	CV_Error(cv::Error::StsInternal, "No such mode");
+	return cv::Vec2f(0, 0);
+}
+
 MultiLayerStixelWrold::MultiLayerStixelWrold(const Parameters& param) : param_(param)
 {
 }
 
-std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
+void MultiLayerStixelWrold::compute(const cv::Mat& disparity, std::vector<Stixel>& stixels)
 {
 	CV_Assert(disparity.type() == CV_32F);
 
@@ -161,33 +183,26 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 	}
 
 	// get camera parameters
-	const CameraParameters& camera = param_.camera;
+	CameraParameters camera = param_.camera;
+
+	// compute road model (assumes planar surface)
+	const cv::Vec2f line = calcRoadDisparityParams(columns, camera, param_.roadEstimation);
+	const float a = line[0];
+	const float b = line[1];
 
 	// compute expected ground disparity
 	std::vector<float> groundDisparity(h);
-	float vhor = 0.f;
+	for (int v = 0; v < h; v++)
+		groundDisparity[h - 1 - v] = a * v + b;
+
+	// horizontal row from which road dispaliry becomes negative
+	const float vhor = h - 1 + b / a;
+
+	// when AUTO mode, update camera tilt and height
 	if (param_.roadEstimation == ROAD_ESTIMATION_AUTO)
 	{
-		// estimate from v-disparity
-		RoadEstimation roadEstimation;
-		const cv::Vec2f line = roadEstimation.compute(columns, camera);
-		const float a = line[0];
-		const float b = line[1];
-		for (int v = 0; v < h; v++)
-			groundDisparity[h - 1 - v] = std::max(a * v + b, 0.f);
-
-		vhor = h - 1 + b / a;
-	}
-	else
-	{
-		const float sinTilt = sinf(camera.tilt);
-		const float cosTilt = cosf(camera.tilt);
-
-		// estimate from camera tilt and height
-		for (int v = 0; v < h; v++)
-			groundDisparity[h - 1 - v] = std::max((camera.baseline / camera.height) * (camera.fu * sinTilt + (v - camera.v0) * cosTilt), 0.f);
-
-		vhor = h - 1 - (camera.v0 * cosTilt - camera.fu * sinTilt) / cosTilt;
+		camera.tilt = atanf((a * camera.v0 + b) / (camera.fu * a));
+		camera.height = camera.baseline * cosf(camera.tilt) / a;
 	}
 
 	// create data cost function of each segment
@@ -329,7 +344,7 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 	//////////////////////////////////////////////////////////////////////////////
 	// backtracking step
 	//////////////////////////////////////////////////////////////////////////////
-	std::vector<Stixel> stixels;
+	stixels.clear();
 	for (int u = 0; u < w; u++)
 	{
 		float minCost = std::numeric_limits<float>::max();
@@ -361,6 +376,4 @@ std::vector<Stixel> MultiLayerStixelWrold::compute(const cv::Mat& disparity)
 			minPos = p2;
 		}
 	}
-
-	return stixels;
 }

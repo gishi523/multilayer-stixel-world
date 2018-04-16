@@ -130,7 +130,8 @@ int main(int argc, char* argv[])
 		// compute stixels
 		const auto t1 = std::chrono::system_clock::now();
 
-		const std::vector<Stixel> stixels = stixelWorld.compute(disparity);
+		std::vector<Stixel> stixels;
+		stixelWorld.compute(disparity, stixels);
 
 		const auto t2 = std::chrono::system_clock::now();
 		const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
