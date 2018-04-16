@@ -18,7 +18,6 @@ public:
 	{
 		int samplingStep;      //!< pixel step of disparity sampling
 		int minDisparity;      //!< minimum disparity used for RANSAC
-
 		int maxIterations;     //!< number of iterations of RANSAC
 		float inlierRadius;    //!< inlier radius of RANSAC
 		float maxCameraHeight; //!< maximum acceptable camera height
@@ -28,21 +27,16 @@ public:
 		{
 			samplingStep = 2;
 			minDisparity = 10;
-
 			maxIterations = 32;
 			inlierRadius = 1;
 			maxCameraHeight = 5;
 		}
 	};
 
-	RoadEstimation(const Parameters& param = Parameters()) : param_(param)
-	{
-	}
+	RoadEstimation(const Parameters& param = Parameters()) : param_(param) {}
 
-	cv::Vec2f compute(const cv::Mat1f& disparity, const CameraParameters& camera)
+	cv::Vec2f compute(const Matrixf& disparity, const CameraParameters& camera)
 	{
-		CV_Assert(disparity.type() == CV_32F);
-
 		const int w = disparity.rows;
 		const int h = disparity.cols;
 		const int dmin = param_.minDisparity;
@@ -54,7 +48,7 @@ public:
 		{
 			for (int v = 0; v < h; v += param_.samplingStep)
 			{
-				const float d = disparity.ptr<float>(u)[v];
+				const float d = disparity(u, v);
 				if (d >= dmin)
 					points_.push_back(cv::Point2f(static_cast<float>(h - 1 - v), d));
 			}
@@ -86,10 +80,10 @@ public:
 			int inliers = 0;
 			for (int i = 0; i < npoints; i++)
 			{
-				const float y = points_[i].x;
-				const float x = points_[i].y;
-				const float yhat = a * y + b;
-				if (fabs(yhat - x) <= param_.inlierRadius)
+				const float x = points_[i].x;
+				const float y = points_[i].y;
+				const float yhat = a * x + b;
+				if (fabs(yhat - y) <= param_.inlierRadius)
 					inliers++;
 			}
 
@@ -129,7 +123,7 @@ private:
 	std::vector<cv::Point2f> points_;
 };
 
-static cv::Vec2f calcRoadDisparityParams(const cv::Mat1f& columns, const CameraParameters& camera, int mode)
+static cv::Vec2f calcRoadDisparityParams(const Matrixf& columns, const CameraParameters& camera, int mode)
 {
 	if (mode == MultiLayerStixelWrold::ROAD_ESTIMATION_AUTO)
 	{
