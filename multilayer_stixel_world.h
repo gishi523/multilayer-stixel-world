@@ -12,7 +12,7 @@ struct Stixel
 	float disp;
 };
 
-class MultiLayerStixelWrold
+class MultiLayerStixelWorld
 {
 public:
 
@@ -132,7 +132,7 @@ public:
 		}
 	};
 
-	MultiLayerStixelWrold(const Parameters& param);
+	MultiLayerStixelWorld(const Parameters& param);
 
 	void compute(const cv::Mat& disparity, std::vector<Stixel>& stixels);
 

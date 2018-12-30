@@ -19,7 +19,7 @@ static const float SQRT2 = static_cast<float>(M_SQRT2);
 
 struct NegativeLogDataTermGrd
 {
-	using CameraParameters = MultiLayerStixelWrold::CameraParameters;
+	using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
 	NegativeLogDataTermGrd(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera,
 		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
@@ -71,7 +71,7 @@ struct NegativeLogDataTermGrd
 
 struct NegativeLogDataTermObj
 {
-	using CameraParameters = MultiLayerStixelWrold::CameraParameters;
+	using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
 	NegativeLogDataTermObj(float dmax, float dmin, float sigma, float pOut, float pInv, const CameraParameters& camera, float deltaz)
 	{

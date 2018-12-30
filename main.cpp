@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 	CV_Assert(fs.isOpened());
 
 	// input parameters
-	MultiLayerStixelWrold::Parameters param;
+	MultiLayerStixelWorld::Parameters param;
 	param.camera.fu = fs["FocalLengthX"];
 	param.camera.fv = fs["FocalLengthY"];
 	param.camera.u0 = fs["CenterX"];
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 	param.dmax = numDisparities;
 
 	cv::Mat disparity;
-	MultiLayerStixelWrold stixelWorld(param);
+	MultiLayerStixelWorld stixelWorld(param);
 
 	for (int frameno = 1;; frameno++)
 	{

@@ -7,7 +7,7 @@
 #include <omp.h>
 #endif
 
-using CameraParameters = MultiLayerStixelWrold::CameraParameters;
+using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
 struct Line
 {
@@ -107,11 +107,11 @@ static Line calcRoadModelVD(const cv::Mat1f& disparity, const CameraParameters& 
 	return Line(a, b);
 }
 
-MultiLayerStixelWrold::MultiLayerStixelWrold(const Parameters& param) : param_(param)
+MultiLayerStixelWorld::MultiLayerStixelWorld(const Parameters& param) : param_(param)
 {
 }
 
-void MultiLayerStixelWrold::compute(const cv::Mat& disparity, std::vector<Stixel>& stixels)
+void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel>& stixels)
 {
 	CV_Assert(disparity.type() == CV_32F);
 
