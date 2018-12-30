@@ -62,70 +62,57 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	// stereo sgbm
+	// stereo SGBM
 	const int wsize = 11;
 	const int numDisparities = 64;
-	const int P1 = 8 * wsize * wsize;
-	const int P2 = 32 * wsize * wsize;
-	cv::Ptr<cv::StereoSGBM> ssgbm = cv::StereoSGBM::create(0, numDisparities, wsize, P1, P2,
-		0, 0, 0, 0, 0, cv::StereoSGBM::MODE_SGBM_3WAY);
+	auto sgbm = cv::StereoSGBM::create(0, numDisparities, wsize);
+	sgbm->setP1(8 * wsize * wsize);
+	sgbm->setP2(32 * wsize * wsize);
+	sgbm->setMode(cv::StereoSGBM::MODE_SGBM_3WAY);
 
 	// read camera parameters
-	const cv::FileStorage cvfs(argv[3], CV_STORAGE_READ);
-	CV_Assert(cvfs.isOpened());
-	const cv::FileNode node(cvfs.fs, NULL);
+	const cv::FileStorage fs(argv[3], CV_STORAGE_READ);
+	CV_Assert(fs.isOpened());
 
 	// input parameters
 	MultiLayerStixelWrold::Parameters param;
-	param.camera.fu = node["FocalLengthX"];
-	param.camera.fv = node["FocalLengthY"];
-	param.camera.u0 = node["CenterX"];
-	param.camera.v0 = node["CenterY"];
-	param.camera.baseline = node["BaseLine"];
-	param.camera.height = node["Height"];
-	param.camera.tilt = node["Tilt"];
+	param.camera.fu = fs["FocalLengthX"];
+	param.camera.fv = fs["FocalLengthY"];
+	param.camera.u0 = fs["CenterX"];
+	param.camera.v0 = fs["CenterY"];
+	param.camera.baseline = fs["BaseLine"];
+	param.camera.height = fs["Height"];
+	param.camera.tilt = fs["Tilt"];
 	param.dmax = numDisparities;
 
+	cv::Mat disparity;
 	MultiLayerStixelWrold stixelWorld(param);
 
 	for (int frameno = 1;; frameno++)
 	{
-		char bufl[256], bufr[256];
-		sprintf(bufl, argv[1], frameno);
-		sprintf(bufr, argv[2], frameno);
+		cv::Mat I1 = cv::imread(cv::format(argv[1], frameno), cv::IMREAD_UNCHANGED);
+		cv::Mat I2 = cv::imread(cv::format(argv[2], frameno), cv::IMREAD_UNCHANGED);
 
-		cv::Mat left = cv::imread(bufl, -1);
-		cv::Mat right = cv::imread(bufr, -1);
-
-		if (left.empty() || right.empty())
+		if (I1.empty() || I2.empty())
 		{
 			std::cerr << "imread failed." << std::endl;
 			break;
 		}
 
-		CV_Assert(left.size() == right.size() && left.type() == right.type());
+		CV_Assert(I1.size() == I2.size() && I1.type() == I2.type());
+		CV_Assert(I1.type() == CV_8U || I1.type() == CV_16U);
 
-		switch (left.type())
+		if (I1.type() == CV_16U)
 		{
-		case CV_8U:
-			// nothing to do
-			break;
-		case CV_16U:
-			// conver to CV_8U
-			double maxVal;
-			cv::minMaxLoc(left, NULL, &maxVal);
-			left.convertTo(left, CV_8U, 255 / maxVal);
-			right.convertTo(right, CV_8U, 255 / maxVal);
-			break;
-		default:
-			std::cerr << "unsupported image type." << std::endl;
-			return -1;
+			cv::normalize(I1, I1, 0, 255, cv::NORM_MINMAX);
+			cv::normalize(I2, I2, 0, 255, cv::NORM_MINMAX);
+			I1.convertTo(I1, CV_8U);
+			I2.convertTo(I2, CV_8U);
 		}
 
 		// compute dispaliry
-		cv::Mat disparity;
-		ssgbm->compute(left, right, disparity);
-		disparity.convertTo(disparity, CV_32F, 1.0 / 16);
+		sgbm->compute(I1, I2, disparity);
+		disparity.convertTo(disparity, CV_32F, 1. / cv::StereoSGBM::DISP_SCALE);
 
 		// compute stixels
 		const auto t1 = std::chrono::system_clock::now();
@@ -137,19 +124,23 @@ int main(int argc, char* argv[])
 		const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 		std::cout << "stixel computation time: " << duration << "[msec]" << std::endl;
 
+		// colorize disparity
+		cv::Mat disparityColor;
+		disparity.convertTo(disparityColor, CV_8U, 255. / numDisparities);
+		cv::applyColorMap(disparityColor, disparityColor, cv::COLORMAP_JET);
+
 		// draw stixels
 		cv::Mat draw;
-		cv::cvtColor(left, draw, cv::COLOR_GRAY2BGRA);
+		cv::cvtColor(I1, draw, cv::COLOR_GRAY2BGR);
 
-		cv::Mat stixelImg = cv::Mat::zeros(left.size(), draw.type());
+		cv::Mat stixelImg = cv::Mat::zeros(I1.size(), draw.type());
 		for (const auto& stixel : stixels)
-			drawStixel(stixelImg, stixel, dispToColor(stixel.disp, 64));
+			drawStixel(stixelImg, stixel, dispToColor(stixel.disp, 1.f * numDisparities));
+		cv::addWeighted(draw, 1, stixelImg, 0.5, 0, draw);
 
-		draw = draw + 0.5 * stixelImg;
-
-		cv::imshow("disparity", disparity / 64);
+		cv::imshow("disparity", disparityColor);
 		cv::imshow("stixels", draw);
-		
+
 		const char c = cv::waitKey(1);
 		if (c == 27)
 			break;
