@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
-find_package(OpenCV 3 REQUIRED)
+set(CMAKE_FIND_PACKAGE_SORT_ORDER NATURAL)
+find_package(OpenCV REQUIRED)
 find_package(OpenMP)
 
 include_directories(${OpenCV_INCLUDE_DIRS})

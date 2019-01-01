@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <chrono>
 #include <opencv2/opencv.hpp>
 
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
 	sgbm->setMode(cv::StereoSGBM::MODE_SGBM_3WAY);
 
 	// read camera parameters
-	const cv::FileStorage fs(argv[3], CV_STORAGE_READ);
+	const cv::FileStorage fs(argv[3], cv::FileStorage::READ);
 	CV_Assert(fs.isOpened());
 
 	// input parameters
