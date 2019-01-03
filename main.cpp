@@ -28,9 +28,9 @@ static cv::Scalar computeColor(float val)
 	}
 
 	tab[0] = v;
-	tab[1] = v*(1.f - s);
-	tab[2] = v*(1.f - s*h);
-	tab[3] = v*(1.f - s*(1.f - h));
+	tab[1] = v * (1.f - s);
+	tab[2] = v * (1.f - s * h);
+	tab[3] = v * (1.f - s * (1.f - h));
 
 	b = tab[sector_data[sector][0]];
 	g = tab[sector_data[sector][1]];
@@ -110,24 +110,33 @@ int main(int argc, char* argv[])
 			I2.convertTo(I2, CV_8U);
 		}
 
+		const auto t1 = std::chrono::steady_clock::now();
+
 		// compute dispaliry
 		sgbm->compute(I1, I2, disparity);
 		disparity.convertTo(disparity, CV_32F, 1. / cv::StereoSGBM::DISP_SCALE);
 
 		// compute stixels
-		const auto t1 = std::chrono::system_clock::now();
+		const auto t2 = std::chrono::steady_clock::now();
 
 		std::vector<Stixel> stixels;
 		stixelWorld.compute(disparity, stixels);
 
-		const auto t2 = std::chrono::system_clock::now();
-		const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-		std::cout << "stixel computation time: " << duration << "[msec]" << std::endl;
+		const auto t3 = std::chrono::steady_clock::now();
+		const auto duration12 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+		const auto duration23 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
 
 		// colorize disparity
 		cv::Mat disparityColor;
 		disparity.convertTo(disparityColor, CV_8U, 255. / numDisparities);
 		cv::applyColorMap(disparityColor, disparityColor, cv::COLORMAP_JET);
+		disparityColor.setTo(cv::Scalar::all(0), disparity < 0);
+
+		// put processing time
+		cv::putText(disparityColor, cv::format("dispaliry computation time: %4.1f [msec]", 1e-3 * duration12),
+			cv::Point(100, 50), 2, 0.75, cv::Scalar(255, 255, 255));
+		cv::putText(disparityColor, cv::format("stixel computation time: %4.1f [msec]", 1e-3 * duration23),
+			cv::Point(100, 80), 2, 0.75, cv::Scalar(255, 255, 255));
 
 		// draw stixels
 		cv::Mat draw;
