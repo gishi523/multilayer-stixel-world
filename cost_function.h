@@ -21,22 +21,23 @@ struct NegativeLogDataTermGrd
 {
 	using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
-	NegativeLogDataTermGrd(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera,
+	NegativeLogDataTermGrd(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, const CameraParameters& camera,
 		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
 	{
-		init(dmax, dmin, sigmaD, pOut, pInv, camera, groundDisparity, vhor, sigmaH, sigmaA);
+		init(dmax, dmin, sigmaD, pOut, pInvC, pInvD, camera, groundDisparity, vhor, sigmaH, sigmaA);
 	}
 
 	inline float operator()(float d, int v) const
 	{
 		if (d < 0.f)
-			return 0.f;
+			return nLogPInvD_;
 
-		return std::min(nLogPUniform_, nLogPGaussian_[v] + cquad_[v] * (d - fn_[v]) * (d - fn_[v]));
+		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_[v] + cquad_[v] * (d - fn_[v]) * (d - fn_[v]));
+		return nLogPData + nLogPValD_;
 	}
 
 	// pre-compute constant terms
-	void init(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera,
+	void init(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, const CameraParameters& camera,
 		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
 	{
 		// uniform distribution term
@@ -63,9 +64,14 @@ struct NegativeLogDataTermGrd
 			// coefficient of quadratic part
 			cquad_[v] = 1.f / (2.f * sigma * sigma);
 		}
+
+		// probability of invalid and valid disparity
+		pInvD *= pInvC / 3;
+		nLogPInvD_ = -logf(pInvD);
+		nLogPValD_ = -logf(1.f - pInvD);
 	}
 
-	float nLogPUniform_;
+	float nLogPUniform_, nLogPInvD_, nLogPValD_;
 	std::vector<float> nLogPGaussian_, cquad_, fn_;
 };
 
@@ -73,21 +79,22 @@ struct NegativeLogDataTermObj
 {
 	using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
-	NegativeLogDataTermObj(float dmax, float dmin, float sigma, float pOut, float pInv, const CameraParameters& camera, float deltaz)
+	NegativeLogDataTermObj(float dmax, float dmin, float sigma, float pOut, float pInvC, float pInvD, const CameraParameters& camera, float deltaz)
 	{
-		init(dmax, dmin, sigma, pOut, pInv, camera, deltaz);
+		init(dmax, dmin, sigma, pOut, pInvC, pInvD, camera, deltaz);
 	}
 
 	inline float operator()(float d, int fn) const
 	{
 		if (d < 0.f)
-			return 0.f;
+			return nLogPInvD_;
 
-		return std::min(nLogPUniform_, nLogPGaussian_[fn] + cquad_[fn] * (d - fn) * (d - fn));
+		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_[fn] + cquad_[fn] * (d - fn) * (d - fn));
+		return nLogPData + nLogPValD_;
 	}
 
 	// pre-compute constant terms
-	void init(float dmax, float dmin, float sigmaD, float pOut, float pInv, const CameraParameters& camera, float deltaz)
+	void init(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, const CameraParameters& camera, float deltaz)
 	{
 		// uniform distribution term
 		nLogPUniform_ = logf(dmax - dmin) - logf(pOut);
@@ -107,29 +114,35 @@ struct NegativeLogDataTermObj
 			// coefficient of quadratic part
 			cquad_[fn] = 1.f / (2.f * sigma * sigma);
 		}
+
+		// probability of invalid and valid disparity
+		pInvD *= pInvC / 3;
+		nLogPInvD_ = -logf(pInvD);
+		nLogPValD_ = -logf(1.f - pInvD);
 	}
 
-	float nLogPUniform_;
+	float nLogPUniform_, nLogPInvD_, nLogPValD_;
 	std::vector<float> nLogPGaussian_, cquad_;
 };
 
 struct NegativeLogDataTermSky
 {
-	NegativeLogDataTermSky(float dmax, float dmin, float sigmaD, float pOut, float pInv, float fn = 0.f) : fn_(fn)
+	NegativeLogDataTermSky(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, float fn = 0.f) : fn_(fn)
 	{
-		init(dmax, dmin, sigmaD, pOut, pInv, fn);
+		init(dmax, dmin, sigmaD, pOut, pInvC, pInvD, fn);
 	}
 
 	inline float operator()(float d) const
 	{
 		if (d < 0.f)
-			return 0.f;
+			return nLogPInvD_;
 
-		return std::min(nLogPUniform_, nLogPGaussian_ + cquad_ * (d - fn_) * (d - fn_));
+		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_ + cquad_ * (d - fn_) * (d - fn_));
+		return nLogPData + nLogPValD_;
 	}
 
 	// pre-compute constant terms
-	void init(float dmax, float dmin, float sigmaD, float pOut, float pInv, float fn)
+	void init(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, float fn)
 	{
 		// uniform distribution term
 		nLogPUniform_ = logf(dmax - dmin) - logf(pOut);
@@ -140,9 +153,14 @@ struct NegativeLogDataTermSky
 
 		// coefficient of quadratic part
 		cquad_ = 1.f / (2.f * sigmaD * sigmaD);
+
+		// probability of invalid and valid disparity
+		pInvD *= pInvC / 3;
+		nLogPInvD_ = -logf(pInvD);
+		nLogPValD_ = -logf(1.f - pInvD);
 	}
 
-	float nLogPUniform_, cquad_, nLogPGaussian_, fn_;
+	float nLogPUniform_, cquad_, nLogPGaussian_, fn_, nLogPInvD_, nLogPValD_;
 };
 
 //////////////////////////////////////////////////////////////////////////////

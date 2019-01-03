@@ -169,10 +169,11 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 	const float vhor = h - 1 + line.b / line.a;
 
 	// create data cost function of each segment
-	NegativeLogDataTermGrd dataTermG(param_.dmax, param_.dmin, param_.sigmaG, param_.pOutG, param_.pInvG, camera,
-		groundDisparity, vhor, param_.sigmaH, param_.sigmaA);
-	NegativeLogDataTermObj dataTermO(param_.dmax, param_.dmin, param_.sigmaO, param_.pOutO, param_.pInvO, camera, param_.deltaz);
-	NegativeLogDataTermSky dataTermS(param_.dmax, param_.dmin, param_.sigmaS, param_.pOutS, param_.pInvS);
+	NegativeLogDataTermGrd dataTermG(param_.dmax, param_.dmin, param_.sigmaG, param_.pOutG, param_.pInvG, param_.pInvD,
+		camera, groundDisparity, vhor, param_.sigmaH, param_.sigmaA);
+	NegativeLogDataTermObj dataTermO(param_.dmax, param_.dmin, param_.sigmaO, param_.pOutO, param_.pInvO, param_.pInvD,
+		camera, param_.deltaz);
+	NegativeLogDataTermSky dataTermS(param_.dmax, param_.dmin, param_.sigmaS, param_.pOutS, param_.pInvS, param_.pInvD);
 
 	// create prior cost function of each segment
 	const int G = NegativeLogPriorTerm::G;

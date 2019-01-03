@@ -69,6 +69,7 @@ public:
 		float pOutS;
 
 		// probability of invalid disparity
+		float pInvD;
 		float pInvG;
 		float pInvO;
 		float pInvS;
@@ -112,6 +113,7 @@ public:
 			pOutS = 0.4f;
 
 			// probability of invalid disparity
+			pInvD = 0.25f;
 			pInvG = 0.34f;
 			pInvO = 0.3f;
 			pInvS = 0.36f;
