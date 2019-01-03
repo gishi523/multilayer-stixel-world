@@ -32,7 +32,9 @@ struct NegativeLogDataTermGrd
 		if (d < 0.f)
 			return nLogPInvD_;
 
-		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_[v] + cquad_[v] * (d - fn_[v]) * (d - fn_[v]));
+		// [Experimental] this error saturation suppresses misdetection like "object below ground"
+		const float error = std::max(d - fn_[v], 0.f);
+		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_[v] + cquad_[v] * error * error);
 		return nLogPData + nLogPValD_;
 	}
 
@@ -89,7 +91,8 @@ struct NegativeLogDataTermObj
 		if (d < 0.f)
 			return nLogPInvD_;
 
-		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_[fn] + cquad_[fn] * (d - fn) * (d - fn));
+		const float error = d - fn;
+		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_[fn] + cquad_[fn] * error * error);
 		return nLogPData + nLogPValD_;
 	}
 
@@ -137,7 +140,8 @@ struct NegativeLogDataTermSky
 		if (d < 0.f)
 			return nLogPInvD_;
 
-		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_ + cquad_ * (d - fn_) * (d - fn_));
+		const float error = d - fn_;
+		const float nLogPData = std::min(nLogPUniform_, nLogPGaussian_ + cquad_ * error * error);
 		return nLogPData + nLogPValD_;
 	}
 
