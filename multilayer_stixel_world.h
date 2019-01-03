@@ -88,6 +88,9 @@ public:
 		// camera parameters
 		CameraParameters camera;
 
+		// scale down factor in height
+		float verticalScaleDown;
+
 		// default settings
 		Parameters()
 		{
@@ -104,8 +107,8 @@ public:
 			sigmaS = 0.2f;
 
 			// camera height and tilt uncertainty
-			sigmaH = 0.05f;
-			sigmaA = 0.05f * static_cast<float>(CV_PI) / 180.f;
+			sigmaH = 0.01f;
+			sigmaA = 0.01f * static_cast<float>(CV_PI) / 180.f;
 
 			// outlier rate
 			pOutG = 0.15f;
@@ -131,6 +134,9 @@ public:
 
 			// camera parameters
 			camera = CameraParameters();
+
+			// scale down factor in height
+			verticalScaleDown = 2.f;
 		}
 	};
 

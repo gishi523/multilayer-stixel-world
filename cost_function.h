@@ -58,7 +58,7 @@ struct NegativeLogDataTermGrd
 			const float sigmaR2 = cf * cf * (tmp * tmp * sigmaH * sigmaH + sigmaA * sigmaA);
 			const float sigma = sqrtf(sigmaD * sigmaD + sigmaR2);
 
-			const float fn = groundDisparity[v];
+			const float fn = std::max(groundDisparity[v], 0.f);
 			const float ANorm = 0.5f * (erff((dmax - fn) / (SQRT2 * sigma)) - erff((dmin - fn) / (SQRT2 * sigma)));
 			nLogPGaussian_[v] = logf(ANorm) + logf(sigma * sqrtf(2.f * PI)) - logf(1.f - pOut);
 			fn_[v] = fn;

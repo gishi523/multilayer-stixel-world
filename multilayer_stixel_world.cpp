@@ -107,6 +107,35 @@ static Line calcRoadModelVD(const cv::Mat1f& disparity, const CameraParameters& 
 	return Line(a, b);
 }
 
+static void computeColumns(const cv::Mat1f& src, cv::Mat1f& dst, int stixelWidth, float verticalScaleDown = -1)
+{
+	const int w = src.cols / stixelWidth;
+	const int h = src.rows;
+
+	// compute horizontal median of each column
+	dst.create(w, h);
+	std::vector<float> buf(stixelWidth);
+	for (int v = 0; v < h; v++)
+	{
+		for (int u = 0; u < w; u++)
+		{
+			// compute horizontal median
+			for (int du = 0; du < stixelWidth; du++)
+				buf[du] = src(v, u * stixelWidth + du);
+			std::sort(std::begin(buf), std::end(buf));
+			const float m = buf[stixelWidth / 2];
+
+			// disparities are stored in reverse order so that v = 0 points the bottom
+			// and transposed for memory efficiency
+			dst(u, h - 1 - v) = m;
+		}
+	}
+
+	// scale down the image in height
+	if (verticalScaleDown > 1.f)
+		cv::resize(dst, dst, cv::Size(), 1. / verticalScaleDown, 1., cv::INTER_NEAREST);
+}
+
 MultiLayerStixelWorld::MultiLayerStixelWorld(const Parameters& param) : param_(param)
 {
 }
@@ -116,27 +145,15 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 	CV_Assert(disparity.type() == CV_32F);
 
 	const int stixelWidth = param_.stixelWidth;
-	const int w = disparity.cols / stixelWidth;
-	const int h = disparity.rows;
 	const int fnmax = static_cast<int>(param_.dmax);
+	const float verticalScaleDown = param_.verticalScaleDown;
 
-	// compute horizontal median of each column
-	Matrixf columns(w, h);
-	std::vector<float> buf(stixelWidth);
-	for (int v = 0; v < h; v++)
-	{
-		for (int u = 0; u < w; u++)
-		{
-			// compute horizontal median
-			for (int du = 0; du < stixelWidth; du++)
-				buf[du] = disparity.at<float>(v, u * stixelWidth + du);
-			std::sort(std::begin(buf), std::end(buf));
-			const float m = buf[stixelWidth / 2];
+	// reduce and reorder disparity map
+	cv::Mat1f columns;
+	computeColumns(disparity, columns, stixelWidth, verticalScaleDown);
 
-			// reverse order of data so that v = 0 points the bottom
-			columns(u, h - 1 - v) = m;
-		}
-	}
+	const int w = columns.rows;
+	const int h = columns.cols;
 
 	// get camera parameters
 	CameraParameters camera = param_.camera;
@@ -340,6 +357,13 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 				stixel.vB = h - 1 - (p2.y + 1);
 				stixel.width = stixelWidth;
 				stixel.disp = dispTable(u, p1.y, p1.x);
+
+				if (verticalScaleDown > 1.f)
+				{
+					stixel.vT = cvRound(verticalScaleDown * stixel.vT);
+					stixel.vB = cvRound(verticalScaleDown * stixel.vB);
+				}
+
 				stixels.push_back(stixel);
 			}
 			minPos = p2;
