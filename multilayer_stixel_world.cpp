@@ -182,22 +182,27 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 	NegativeLogPriorTerm priorTerm(h, vhor, param_.dmax, param_.dmin, camera.baseline, camera.fu, param_.deltaz,
 		param_.eps, param_.pOrd, param_.pGrav, param_.pBlg, groundDisparity);
 
-	// data cost LUT
-	Matrixf costsG(w, h), costsO(w, h, fnmax), costsS(w, h), sum(w, h);
-	Matrixi valid(w, h);
-
 	// cost table
 	Matrixf costTable(w, h, 3), dispTable(w, h, 3);
 	Matrix<cv::Point> indexTable(w, h, 3);
 
 	// process each column
 	int u;
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
 	for (u = 0; u < w; u++)
 	{
+		cv::Mat1f costTable_u(h, 3, costTable.ptr<float>(u));
+		cv::Mat1f dispTable_u(h, 3, dispTable.ptr<float>(u));
+		cv::Mat_<cv::Point> indexTable_u(h, 3, indexTable.ptr<cv::Point>(u));
+
 		//////////////////////////////////////////////////////////////////////////////
 		// pre-computate LUT
 		//////////////////////////////////////////////////////////////////////////////
+
+		// data cost LUT
+		Matrixf costsG(h), costsO(h, fnmax), costsS(h), sum(h);
+		Matrixi valid(h);
+
 		float tmpSumG = 0.f;
 		float tmpSumS = 0.f;
 		std::vector<float> tmpSumO(fnmax, 0.f);
@@ -212,17 +217,17 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 
 			// pre-computation for ground costs
 			tmpSumG += dataTermG(d, v);
-			costsG(u, v) = tmpSumG;
+			costsG(v) = tmpSumG;
 
 			// pre-computation for sky costs
 			tmpSumS += dataTermS(d);
-			costsS(u, v) = tmpSumS;
+			costsS(v) = tmpSumS;
 
 			// pre-computation for object costs
 			for (int fn = 0; fn < fnmax; fn++)
 			{
 				tmpSumO[fn] += dataTermO(d, fn);
-				costsO(u, v, fn) = tmpSumO[fn];
+				costsO(v, fn) = tmpSumO[fn];
 			}
 
 			// pre-computation for mean disparity of stixel
@@ -231,8 +236,8 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 				tmpSum += d;
 				tmpValid++;
 			}
-			sum(u, v) = tmpSum;
-			valid(u, v) = tmpValid;
+			sum(v) = tmpSum;
+			valid(v) = tmpValid;
 		}
 
 		//////////////////////////////////////////////////////////////////////////////
@@ -247,32 +252,32 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 			// process vB = 0
 			{
 				// compute mean disparity within the range of vB to vT
-				const float d1 = sum(u, vT) / std::max(valid(u, vT), 1);
+				const float d1 = sum(vT) / std::max(valid(vT), 1);
 				const int fn = cvRound(d1);
 
 				// initialize minimum costs
-				minCostG = costsG(u, vT) + priorTerm.getG0(vT);
-				minCostO = costsO(u, vT, fn) + priorTerm.getO0(vT);
-				minCostS = costsS(u, vT) + priorTerm.getS0(vT);
+				minCostG = costsG(vT) + priorTerm.getG0(vT);
+				minCostO = costsO(vT, fn) + priorTerm.getO0(vT);
+				minCostS = costsS(vT) + priorTerm.getS0(vT);
 				minDispG = minDispO = minDispS = d1;
 			}
 
 			for (int vB = 1; vB <= vT; vB++)
 			{
 				// compute mean disparity within the range of vB to vT
-				const float d1 = (sum(u, vT) - sum(u, vB - 1)) / std::max(valid(u, vT) - valid(u, vB - 1), 1);
+				const float d1 = (sum(vT) - sum(vB - 1)) / std::max(valid(vT) - valid(vB - 1), 1);
 				const int fn = cvRound(d1);
 
 				// compute data terms costs
-				const float dataCostG = vT < vhor ? costsG(u, vT) - costsG(u, vB - 1) : N_LOG_0_0;
-				const float dataCostO = costsO(u, vT, fn) - costsO(u, vB - 1, fn);
-				const float dataCostS = vT < vhor ? N_LOG_0_0 : costsS(u, vT) - costsS(u, vB - 1);
+				const float dataCostG = vT < vhor ? costsG(vT) - costsG(vB - 1) : N_LOG_0_0;
+				const float dataCostO = costsO(vT, fn) - costsO(vB - 1, fn);
+				const float dataCostS = vT < vhor ? N_LOG_0_0 : costsS(vT) - costsS(vB - 1);
 
 				// compute priors costs and update costs
-				const float d2 = dispTable(u, vB - 1, 1);
+				const float d2 = dispTable_u(vB - 1, O);
 
 #define UPDATE_COST(C1, C2) \
-				const float cost##C1##C2 = dataCost##C1 + priorTerm.get##C1##C2(vB, cvRound(d1), cvRound(d2)) + costTable(u, vB - 1, C2); \
+				const float cost##C1##C2 = dataCost##C1 + priorTerm.get##C1##C2(vB, cvRound(d1), cvRound(d2)) + costTable_u(vB - 1, C2); \
 				if (cost##C1##C2 < minCost##C1) \
 				{ \
 					minCost##C1 = cost##C1##C2; \
@@ -291,17 +296,17 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 				UPDATE_COST(S, S);
 			}
 
-			costTable(u, vT, G) = minCostG;
-			costTable(u, vT, O) = minCostO;
-			costTable(u, vT, S) = minCostS;
+			costTable_u(vT, G) = minCostG;
+			costTable_u(vT, O) = minCostO;
+			costTable_u(vT, S) = minCostS;
 
-			dispTable(u, vT, G) = minDispG;
-			dispTable(u, vT, O) = minDispO;
-			dispTable(u, vT, S) = minDispS;
+			dispTable_u(vT, G) = minDispG;
+			dispTable_u(vT, O) = minDispO;
+			dispTable_u(vT, S) = minDispS;
 
-			indexTable(u, vT, G) = minPosG;
-			indexTable(u, vT, O) = minPosO;
-			indexTable(u, vT, S) = minPosS;
+			indexTable_u(vT, G) = minPosG;
+			indexTable_u(vT, O) = minPosO;
+			indexTable_u(vT, S) = minPosS;
 		}
 	}
 
