@@ -3,34 +3,43 @@
 
 #include <opencv2/opencv.hpp>
 
+/** @brief Stixel struct
+*/
 struct Stixel
 {
-	int u;
-	int vT;
-	int vB;
-	int width;
-	float disp;
+	int u;                        //!< stixel center x position
+	int vT;                       //!< stixel top y position
+	int vB;                       //!< stixel bottom y position
+	int width;                    //!< stixel width
+	float disp;                   //!< stixel average disparity
 };
 
+/** @brief MultiLayerStixelWorld class.
+
+The class implements the Multi-Layered Stixel computation based on [1].
+[1] D. Pfeiffer: "The Stixel World - A Compact Medium-level Representation for Efficiently Modeling Three-dimensional Environments"
+*/
 class MultiLayerStixelWorld
 {
 public:
 
 	enum
 	{
-		ROAD_ESTIMATION_AUTO = 0,
-		ROAD_ESTIMATION_CAMERA
+		ROAD_ESTIMATION_AUTO = 0, //!< road disparity are estimated by input disparity
+		ROAD_ESTIMATION_CAMERA    //!< road disparity are estimated by camera tilt and height
 	};
 
+	/** @brief CameraParameters struct
+	*/
 	struct CameraParameters
 	{
-		float fu;
-		float fv;
-		float u0;
-		float v0;
-		float baseline;
-		float height;
-		float tilt;
+		float fu;                 //!< focal length x (pixel)
+		float fv;                 //!< focal length y (pixel)
+		float u0;                 //!< principal point x (pixel)
+		float v0;                 //!< principal point y (pixel)
+		float baseline;           //!< baseline (meter)
+		float height;             //!< height position (meter), ignored when ROAD_ESTIMATION_AUTO
+		float tilt;               //!< tilt angle (radian), ignored when ROAD_ESTIMATION_AUTO
 
 		// default settings
 		CameraParameters()
@@ -45,6 +54,8 @@ public:
 		}
 	};
 
+	/** @brief Parameters struct
+	*/
 	struct Parameters
 	{
 		// stixel width
@@ -136,12 +147,20 @@ public:
 			camera = CameraParameters();
 
 			// scale down factor in height
+			// this reduces the computation time significantly
 			verticalScaleDown = 2.f;
 		}
 	};
 
+	/** @brief The constructor
+	@param param input parameters
+	*/
 	MultiLayerStixelWorld(const Parameters& param);
 
+	/** @brief Computes stixels in a disparity map
+	@param disparity Input 32-bit single-channel disparity map
+	@param stixels Output array of stixels
+	*/
 	void compute(const cv::Mat& disparity, std::vector<Stixel>& stixels);
 
 private:
