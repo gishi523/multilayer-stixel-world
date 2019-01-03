@@ -99,9 +99,9 @@ public:
 			dmax = 64;
 
 			// disparity measurement uncertainty
-			sigmaG = 1.5f;
-			sigmaO = 1.5f;
-			sigmaS = 1.2f;
+			sigmaG = 0.5f;
+			sigmaO = 0.5f;
+			sigmaS = 0.2f;
 
 			// camera height and tilt uncertainty
 			sigmaH = 0.05f;
