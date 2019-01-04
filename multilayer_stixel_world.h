@@ -100,6 +100,7 @@ public:
 		CameraParameters camera;
 
 		// scale down factor in height
+		// this reduces the computation time significantly
 		float verticalScaleDown;
 
 		// default settings
@@ -119,7 +120,7 @@ public:
 
 			// camera height and tilt uncertainty
 			sigmaH = 0.01f;
-			sigmaA = 0.01f * static_cast<float>(CV_PI) / 180.f;
+			sigmaA = 0.001f;
 
 			// outlier rate
 			pOutG = 0.15f;
