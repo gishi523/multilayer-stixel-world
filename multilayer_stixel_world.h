@@ -1,7 +1,7 @@
 #ifndef __MULTILAYER_STIXEL_WORLD_H__
 #define __MULTILAYER_STIXEL_WORLD_H__
 
-#include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
 
 /** @brief Stixel struct
 */

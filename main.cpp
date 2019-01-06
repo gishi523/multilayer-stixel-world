@@ -1,6 +1,9 @@
 #include <iostream>
 #include <chrono>
-#include <opencv2/opencv.hpp>
+
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 
 #include "multilayer_stixel_world.h"
 #include "semi_global_matching.h"
@@ -146,7 +149,7 @@ int main(int argc, char* argv[])
 
 		// compute dispaliry
 		sgm.compute(I1, I2, disparity);
-		disparity.convertTo(disparity, CV_32F, 1. / cv::StereoSGBM::DISP_SCALE);
+		disparity.convertTo(disparity, CV_32F, 1. / SemiGlobalMatching::DISP_SCALE);
 
 		// compute stixels
 		const auto t2 = std::chrono::steady_clock::now();
