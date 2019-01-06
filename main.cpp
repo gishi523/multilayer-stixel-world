@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "multilayer_stixel_world.h"
+#include "semi_global_matching.h"
 
 static cv::Scalar computeColor(float val)
 {
@@ -38,11 +39,11 @@ static cv::Scalar computeColor(float val)
 	return 255 * cv::Scalar(b, g, r);
 }
 
-static cv::Scalar dispToColor(float disp, float maxdisp)
+static cv::Scalar dispToColor(float disp, float maxdisp = 64, float offset = 0)
 {
 	if (disp < 0)
 		return cv::Scalar(128, 128, 128);
-	return computeColor(std::min(disp, maxdisp) / maxdisp);
+	return computeColor(std::min(disp + offset, maxdisp) / maxdisp);
 }
 
 static void drawStixel(cv::Mat& img, const Stixel& stixel, cv::Scalar color)
@@ -54,6 +55,41 @@ static void drawStixel(cv::Mat& img, const Stixel& stixel, cv::Scalar color)
 	cv::rectangle(img, cv::Rect(tl, br), cv::Scalar(255, 255, 255), 1);
 }
 
+class SGMWrapper
+{
+
+public:
+
+	SGMWrapper(int numDisparities)
+	{
+		SemiGlobalMatching::Parameters param;
+		param.numDisparities = numDisparities / 2;
+		param.max12Diff = -1;
+		param.medianKernelSize = -1;
+		sgm_ = cv::Ptr<SemiGlobalMatching>(new SemiGlobalMatching(param));
+	}
+
+	void compute(const cv::Mat& I1, const cv::Mat& I2, cv::Mat& D1)
+	{
+		cv::pyrDown(I1, I1_);
+		cv::pyrDown(I2, I2_);
+
+		sgm_->compute(I1_, I2_, D1_, D2_);
+
+		cv::resize(D1_, D1, I1.size(), 0, 0, cv::INTER_CUBIC);
+		cv::resize(D2_, D2, I1.size(), 0, 0, cv::INTER_CUBIC);
+		D1 *= 2;
+		D2 *= 2;
+		cv::medianBlur(D1, D1, 3);
+		cv::medianBlur(D2, D2, 3);
+		SemiGlobalMatching::LRConsistencyCheck(D1, D2, 5);
+	}
+
+private:
+	cv::Mat I1_, I2_, D1_, D2_, D2;
+	cv::Ptr<SemiGlobalMatching> sgm_;
+};
+
 int main(int argc, char* argv[])
 {
 	if (argc < 4)
@@ -63,12 +99,8 @@ int main(int argc, char* argv[])
 	}
 
 	// stereo SGBM
-	const int wsize = 11;
-	const int numDisparities = 64;
-	auto sgbm = cv::StereoSGBM::create(0, numDisparities, wsize);
-	sgbm->setP1(8 * wsize * wsize);
-	sgbm->setP2(32 * wsize * wsize);
-	sgbm->setMode(cv::StereoSGBM::MODE_SGBM_3WAY);
+	const int numDisparities = 128;
+	SGMWrapper sgm(numDisparities);
 
 	// read camera parameters
 	const cv::FileStorage fs(argv[3], cv::FileStorage::READ);
@@ -113,7 +145,7 @@ int main(int argc, char* argv[])
 		const auto t1 = std::chrono::steady_clock::now();
 
 		// compute dispaliry
-		sgbm->compute(I1, I2, disparity);
+		sgm.compute(I1, I2, disparity);
 		disparity.convertTo(disparity, CV_32F, 1. / cv::StereoSGBM::DISP_SCALE);
 
 		// compute stixels
@@ -144,7 +176,7 @@ int main(int argc, char* argv[])
 
 		cv::Mat stixelImg = cv::Mat::zeros(I1.size(), draw.type());
 		for (const auto& stixel : stixels)
-			drawStixel(stixelImg, stixel, dispToColor(stixel.disp, 1.f * numDisparities));
+			drawStixel(stixelImg, stixel, dispToColor(stixel.disp));
 		cv::addWeighted(draw, 1, stixelImg, 0.5, 0, draw);
 
 		cv::imshow("disparity", disparityColor);
