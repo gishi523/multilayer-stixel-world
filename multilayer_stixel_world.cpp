@@ -114,9 +114,12 @@ static void computeColumns(const cv::Mat1f& src, cv::Mat1f& dst, int stixelWidth
 
 	// compute horizontal median of each column
 	dst.create(w, h);
-	std::vector<float> buf(stixelWidth);
-	for (int v = 0; v < h; v++)
+
+	int v;
+#pragma omp parallel for schedule(dynamic)
+	for (v = 0; v < h; v++)
 	{
+		std::vector<float> buf(stixelWidth);
 		for (int u = 0; u < w; u++)
 		{
 			// compute horizontal median
@@ -184,6 +187,7 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 
 	// horizontal row from which road dispaliry becomes negative
 	const float vhor = h - 1 + line.b / line.a;
+	const int vH = std::min(static_cast<int>(vhor), h - 1);
 
 	// create data cost function of each segment
 	NegativeLogDataTermGrd dataTermG(param_.dmax, param_.dmin, param_.sigmaG, param_.pOutG, param_.pInvG, param_.pInvD,
@@ -200,7 +204,7 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 		param_.eps, param_.pOrd, param_.pGrav, param_.pBlg, groundDisparity);
 
 	// cost table
-	Matrixf costTable(w, h, 3), dispTable(w, h, 3);
+	Matrixf costTable(w, h, 3), dispTable(w, h);
 	Matrix<cv::Point> indexTable(w, h, 3);
 
 	// process each column
@@ -209,12 +213,12 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 	for (u = 0; u < w; u++)
 	{
 		cv::Mat1f costTable_u(h, 3, costTable.ptr<float>(u));
-		cv::Mat1f dispTable_u(h, 3, dispTable.ptr<float>(u));
+		cv::Mat1f dispTable_u(h, 1, dispTable.ptr<float>(u));
 		cv::Mat_<cv::Point> indexTable_u(h, 3, indexTable.ptr<cv::Point>(u));
 
-		//////////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////////////////////////////////
 		// pre-computate LUT
-		//////////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////////////////////////////////
 
 		// data cost LUT
 		Matrixf costsG(h), costsO(h, fnmax), costsS(h), sum(h);
@@ -257,10 +261,24 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 			valid(v) = tmpValid;
 		}
 
-		//////////////////////////////////////////////////////////////////////////////
+#define UPDATE_COST(C1, C2) \
+		const float cost##C1##C2 = dataCost##C1 + priorTerm.get##C1##C2(vB, cvRound(d1), cvRound(d2)) + costTable_u(vB - 1, C2); \
+		if (cost##C1##C2 < minCost##C1) \
+		{ \
+			minCost##C1 = cost##C1##C2; \
+			minPos##C1 = cv::Point(C2, vB - 1); \
+			minDisp##C1 = d1; \
+		} \
+
+		////////////////////////////////////////////////////////////////////////////////////////////
 		// compute cost tables
-		//////////////////////////////////////////////////////////////////////////////
-		for (int vT = 0; vT < h; vT++)
+		//
+		// for paformance optimization, loop is split at vhor and unnecessary computation is ommited
+		////////////////////////////////////////////////////////////////////////////////////////////
+
+		// process vT = 0 to vhor
+		// in this range, the class sky is not evaluated
+		for (int vT = 0; vT <= vH; vT++)
 		{
 			float minCostG, minCostO, minCostS;
 			float minDispG, minDispO, minDispS;
@@ -275,7 +293,7 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 				// initialize minimum costs
 				minCostG = costsG(vT) + priorTerm.getG0(vT);
 				minCostO = costsO(vT, fn) + priorTerm.getO0(vT);
-				minCostS = costsS(vT) + priorTerm.getS0(vT);
+				minCostS = N_LOG_0_0;
 				minDispG = minDispO = minDispS = d1;
 			}
 
@@ -283,47 +301,100 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 			{
 				// compute mean disparity within the range of vB to vT
 				const float d1 = (sum(vT) - sum(vB - 1)) / std::max(valid(vT) - valid(vB - 1), 1);
+				const float d2 = dispTable_u(vB - 1);
 				const int fn = cvRound(d1);
 
 				// compute data terms costs
-				const float dataCostG = vT < vhor ? costsG(vT) - costsG(vB - 1) : N_LOG_0_0;
+				const float dataCostG = costsG(vT) - costsG(vB - 1);
 				const float dataCostO = costsO(vT, fn) - costsO(vB - 1, fn);
-				const float dataCostS = vT < vhor ? N_LOG_0_0 : costsS(vT) - costsS(vB - 1);
 
 				// compute priors costs and update costs
-				const float d2 = dispTable_u(vB - 1, O);
-
-#define UPDATE_COST(C1, C2) \
-				const float cost##C1##C2 = dataCost##C1 + priorTerm.get##C1##C2(vB, cvRound(d1), cvRound(d2)) + costTable_u(vB - 1, C2); \
-				if (cost##C1##C2 < minCost##C1) \
-				{ \
-					minCost##C1 = cost##C1##C2; \
-					minDisp##C1 = d1; \
-					minPos##C1 = cv::Point(C2, vB - 1); \
-				} \
-
 				UPDATE_COST(G, G);
 				UPDATE_COST(G, O);
-				UPDATE_COST(G, S);
 				UPDATE_COST(O, G);
 				UPDATE_COST(O, O);
-				UPDATE_COST(O, S);
-				UPDATE_COST(S, G);
-				UPDATE_COST(S, O);
-				UPDATE_COST(S, S);
 			}
 
 			costTable_u(vT, G) = minCostG;
 			costTable_u(vT, O) = minCostO;
 			costTable_u(vT, S) = minCostS;
 
-			dispTable_u(vT, G) = minDispG;
-			dispTable_u(vT, O) = minDispO;
-			dispTable_u(vT, S) = minDispS;
+			indexTable_u(vT, G) = minPosG;
+			indexTable_u(vT, O) = minPosO;
+			indexTable_u(vT, S) = minPosS;
+
+			dispTable_u(vT) = minDispO;
+		}
+
+		// process vT = vhor to h
+		// in this range, the class ground is not evaluated
+		for (int vT = vH + 1; vT < h; vT++)
+		{
+			float minCostG, minCostO, minCostS;
+			float minDispG, minDispO, minDispS;
+			cv::Point minPosG(G, 0), minPosO(O, 0), minPosS(S, 0);
+
+			// process vB = 0
+			{
+				// compute mean disparity within the range of vB to vT
+				const float d1 = sum(vT) / std::max(valid(vT), 1);
+				const int fn = cvRound(d1);
+
+				// initialize minimum costs
+				minCostG = N_LOG_0_0;
+				minCostO = costsO(vT, fn) + priorTerm.getO0(vT);
+				minCostS = N_LOG_0_0;
+				minDispG = minDispO = minDispS = d1;
+			}
+
+			// process vB = 1 to vH + 1
+			// in this range, transition from sky is not allowed
+			for (int vB = 1; vB <= std::min(vH + 1, vT); vB++)
+			{
+				// compute mean disparity within the range of vB to vT
+				const float d1 = (sum(vT) - sum(vB - 1)) / std::max(valid(vT) - valid(vB - 1), 1);
+				const float d2 = dispTable_u(vB - 1);
+				const int fn = cvRound(d1);
+
+				// compute data terms costs
+				const float dataCostO = costsO(vT, fn) - costsO(vB - 1, fn);
+				const float dataCostS = costsS(vT) - costsS(vB - 1);
+
+				// compute priors costs and update costs
+				UPDATE_COST(O, G);
+				UPDATE_COST(O, O);
+				UPDATE_COST(S, G);
+				UPDATE_COST(S, O);
+			}
+
+			// process vB = vH + 2 to vT
+			// in this range, transition from ground is not allowed
+			for (int vB = vH + 2; vB <= vT; vB++)
+			{
+				// compute mean disparity within the range of vB to vT
+				const float d1 = (sum(vT) - sum(vB - 1)) / std::max(valid(vT) - valid(vB - 1), 1);
+				const float d2 = dispTable_u(vB - 1);
+				const int fn = cvRound(d1);
+
+				// compute data terms costs
+				const float dataCostO = costsO(vT, fn) - costsO(vB - 1, fn);
+				const float dataCostS = costsS(vT) - costsS(vB - 1);
+
+				// compute priors costs and update costs
+				UPDATE_COST(O, O);
+				UPDATE_COST(O, S);
+				UPDATE_COST(S, O);
+			}
+
+			costTable_u(vT, G) = minCostG;
+			costTable_u(vT, O) = minCostO;
+			costTable_u(vT, S) = minCostS;
 
 			indexTable_u(vT, G) = minPosG;
 			indexTable_u(vT, O) = minPosO;
 			indexTable_u(vT, S) = minPosS;
+
+			dispTable_u(vT) = minDispO;
 		}
 	}
 
@@ -335,7 +406,7 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 	{
 		float minCost = std::numeric_limits<float>::max();
 		cv::Point minPos;
-		for (int c = 0; c < 3; c++)
+		for (int c = 1; c < 3; c++)
 		{
 			const float cost = costTable(u, h - 1, c);
 			if (cost < minCost)
@@ -356,7 +427,7 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 				stixel.vT = h - 1 - p1.y;
 				stixel.vB = h - 1 - (p2.y + 1);
 				stixel.width = stixelWidth;
-				stixel.disp = dispTable(u, p1.y, p1.x);
+				stixel.disp = dispTable(u, p1.y);
 
 				if (verticalScaleDown > 1.f)
 				{
