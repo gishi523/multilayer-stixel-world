@@ -141,6 +141,14 @@ static void computeColumns(const cv::Mat1f& src, cv::Mat1f& dst, int stixelWidth
 
 MultiLayerStixelWorld::MultiLayerStixelWorld(const Parameters& param) : param_(param)
 {
+	if (param.verticalScaleDown > 1.f)
+	{
+		// scale camera parameters
+		const float invScale = 1.f / param.verticalScaleDown;
+		param_.camera.v0 *= invScale;
+		param_.camera.tilt *= invScale;
+		param_.camera.height *= invScale;
+	}
 }
 
 void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel>& stixels)
@@ -191,7 +199,7 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 
 	// create data cost function of each segment
 	NegativeLogDataTermGrd dataTermG(param_.dmax, param_.dmin, param_.sigmaG, param_.pOutG, param_.pInvG, param_.pInvD,
-		camera, groundDisparity, vhor, param_.sigmaH, param_.sigmaA);
+		camera, groundDisparity, vhor, param_.sigmaH, param_.sigmaA, verticalScaleDown);
 	NegativeLogDataTermObj dataTermO(param_.dmax, param_.dmin, param_.sigmaO, param_.pOutO, param_.pInvO, param_.pInvD,
 		camera, param_.deltaz);
 	NegativeLogDataTermSky dataTermS(param_.dmax, param_.dmin, param_.sigmaS, param_.pOutS, param_.pInvS, param_.pInvD);

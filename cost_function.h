@@ -22,9 +22,9 @@ struct NegativeLogDataTermGrd
 	using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
 	NegativeLogDataTermGrd(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, const CameraParameters& camera,
-		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
+		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA, float vscale = 1.f)
 	{
-		init(dmax, dmin, sigmaD, pOut, pInvC, pInvD, camera, groundDisparity, vhor, sigmaH, sigmaA);
+		init(dmax, dmin, sigmaD, pOut, pInvC, pInvD, camera, groundDisparity, vhor, sigmaH, sigmaA, vscale);
 	}
 
 	inline float operator()(float d, int v) const
@@ -40,12 +40,12 @@ struct NegativeLogDataTermGrd
 
 	// pre-compute constant terms
 	void init(float dmax, float dmin, float sigmaD, float pOut, float pInvC, float pInvD, const CameraParameters& camera,
-		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA)
+		const std::vector<float>& groundDisparity, float vhor, float sigmaH, float sigmaA, float vscale)
 	{
 		// uniform distribution term
 		nLogPUniform_ = logf(dmax - dmin) - logf(pOut);
 
-		const float cf = camera.fu * camera.baseline / camera.height;
+		const float cf = camera.fu * camera.baseline / (vscale * camera.height);
 
 		// Gaussian distribution term
 		const int h = static_cast<int>(groundDisparity.size());
