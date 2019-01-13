@@ -120,7 +120,7 @@ public:
 
 			// camera height and tilt uncertainty
 			sigmaH = 0.01f;
-			sigmaA = 0.001f;
+			sigmaA = 0.01f;
 
 			// outlier rate
 			pOutG = 0.15f;
