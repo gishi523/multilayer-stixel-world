@@ -7,6 +7,8 @@
 #include <omp.h>
 #endif
 
+#define UNUSED(x) ((void)x)
+
 using CameraParameters = MultiLayerStixelWorld::CameraParameters;
 
 struct Line
@@ -332,6 +334,9 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 			indexTable_u(vT, S) = minPosS;
 
 			dispTable_u(vT) = minDispO;
+
+			UNUSED(minDispG);
+			UNUSED(minDispS);
 		}
 
 		// process vT = vhor to h
@@ -403,6 +408,9 @@ void MultiLayerStixelWorld::compute(const cv::Mat& disparity, std::vector<Stixel
 			indexTable_u(vT, S) = minPosS;
 
 			dispTable_u(vT) = minDispO;
+
+			UNUSED(minDispG);
+			UNUSED(minDispS);
 		}
 	}
 

@@ -7,7 +7,7 @@ find_package(OpenMP)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 if (CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -O3")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -O3 -Wall -msse4.1")
 endif (CMAKE_COMPILER_IS_GNUCXX)
 
 if (OPENMP_FOUND)
